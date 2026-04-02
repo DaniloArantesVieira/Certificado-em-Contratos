@@ -45,7 +45,3 @@ Depois, acesse o endereço configurado no navegador. Como o certificado é autoa
 - Não utilize certificados autoassinados em produção.
 - Não publique chaves privadas em repositórios públicos.
 - Em produção, use gerenciamento seguro de segredos e certificados válidos.
-
-## Sobre o requirements.txt
-
-Este projeto não utiliza dependências Python. O arquivo foi incluído para manter consistência com os demais projetos.
