@@ -1,0 +1,9 @@
+certs/*
+!certs/.gitkeep
+.env
+.env.*
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

@@ -1,0 +1,70 @@
+name: Docker CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate Docker Compose configuration
+        run: docker compose config
+
+      - name: Build Docker image
+        run: docker compose build --no-cache
+
+      - name: Generate temporary TLS certificate
+        shell: pwsh
+        run: ./scripts/generate-cert.ps1
+
+      - name: Start service
+        run: docker compose up -d
+
+      - name: Validate HTTP redirect and HTTPS response
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          https_status=""
+          for attempt in {1..30}; do
+            https_status="$(curl --insecure --silent --output /dev/null --write-out '%{http_code}' https://localhost || true)"
+            if [ "$https_status" = "200" ]; then
+              break
+            fi
+            sleep 1
+          done
+          test "$https_status" = "200"
+
+          read -r http_status redirect_url < <(
+            curl --silent --show-error --output /dev/null \
+              --write-out '%{http_code} %{redirect_url}\n' \
+              http://localhost
+          )
+          redirect_url="${redirect_url%$'\r'}"
+          test "$http_status" = "301"
+          test "$redirect_url" = "https://localhost/"
+
+          https_headers="$(curl --insecure --silent --show-error --head https://localhost | tr -d '\r')"
+          grep -Fq 'X-Content-Type-Options: nosniff' <<< "$https_headers"
+          grep -Fq 'X-Frame-Options: SAMEORIGIN' <<< "$https_headers"
+          grep -Fq 'Referrer-Policy: strict-origin-when-cross-origin' <<< "$https_headers"
+
+      - name: Show service logs
+        if: always()
+        run: docker compose logs servidor-web
+
+      - name: Stop service
+        if: always()
+        run: docker compose down --remove-orphans
